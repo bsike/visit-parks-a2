@@ -1,0 +1,33 @@
+color_theme: "light-default"
+mpl_theme: "" # TODO
+dims_inches: [36, 36]
+# TODO output format, rasterized?, output directory
+
+xlim: [1.3273e7, 1.3318e7]
+ylim: [2.61e5, 3.06e5]
+
+lane_denom: 4
+
+usgs_streets: ["Ponds Dr", "Mulberry Ct", "Hikone Dr", "Barton Shore Dr", "Matthai Botanical Gardens"]
+
+park_color_cycler: "Hilbert" # Hilbert, Random, or None
+park_color_cycler_arg: "pi" # numerical argument for the cycler. Seed for random, multiplier for hilbert.
+
+# File locations
+a2_parks: "/Users/bsike/OtherData/a2_GIS/aa_parks/AA_Parks.shp"
+a2_landuse: "/Users/bsike/OtherData/a2_GIS/aa_landuse/AA_LandUse.shp"
+a2_street: "/Users/bsike/OtherData/a2_GIS/aa_roadcenterline/AA_RoadCenterline.shp"
+a2_noncity: "/Users/bsike/OtherData/a2_GIS/aa_non_city_open_spaces/AA_Non_City_Open_Spaces.shp"
+a2_univ: "/Users/bsike/OtherData/a2_GIS/aa_university/AA_University.shp"
+a2_schools: "/Users/bsike/OtherData/a2_GIS/aa_schools/AA_Schools.shp"
+a2_huron_river: "/Users/bsike/OtherData/a2_GIS/huronrivergislayer/Huron_River_July_2026.shp"
+usgs_water1: "/Users/bsike/OtherData/a2_GIS/NHD_H_Michigan_State_Shape/Shape/NHDArea.shp"
+usgs_water2: "/Users/bsike/OtherData/a2_GIS/NHD_H_Michigan_State_Shape/Shape/NHDWaterbody.shp"
+usgs_road1: "/Users/bsike/OtherData/a2_GIS/TRAN_Michigan_State_Shape/Shape/Trans_RoadSegment_0.shp"
+usgs_road2: "/Users/bsike/OtherData/a2_GIS/TRAN_Michigan_State_Shape/Shape/Trans_RoadSegment_1.shp"
+usgs_rail: "/Users/bsike/OtherData/a2_GIS/TRAN_Michigan_State_Shape/Shape/Trans_RailFeature.shp"
+washtenaw_rec: "/Users/bsike/OtherData/a2_GIS/RecreationLands/RecreationLands.shp"
+washtenaw_conserv: "/Users/bsike/OtherData/a2_GIS/ConservationLands/ConservationLands.shp"
+washtenaw_trails: "/Users/bsike/OtherData/a2_GIS/CountyTrails/cntytrls.shp"
+washtenaw_b2b: "/Users/bsike/OtherData/a2_GIS/B2BTrail/B2BTrail.shp"
+osm: "/Users/bsike/OtherData/osm/aa_2.osm"
