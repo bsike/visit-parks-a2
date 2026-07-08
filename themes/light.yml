@@ -1,0 +1,22 @@
+background:   "#ffffff"
+streets:      "#aaaaaa"
+park_single:  "" # use cycler if empty; prev #229922
+park_cycler:  ["#b1d16c", "#72d263", "#42ad3f", "#3fa053", "#459660", "#306943"] # also accept cmap
+park_label:   "#ee6611" # inherit park color if empty
+park_text:    "" # inherit park color if empty; prev: #229922
+water:        "#7799cc"
+other_green:  "#e0fae2"
+university:   "#fff9ea"
+pub_schools:  "#f3e2ff"
+railroad:     "#885533"
+highway:      "#bbaa55"
+trail_base:   "#777777"
+trail_dots:   "#eeeeee"
+b2b_base:     "#eecc33"
+b2b_stripes:  "#ee5533"
+compass_base: "#777777"
+compass_acc:  "#999999"
+scale_mile:   "#555555"
+scale_km:     "#777777"
+checklist:    "#555555"
+bbox_bgs:     "#ffffffcc"

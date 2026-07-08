@@ -35,6 +35,8 @@ from matplotlib.patches import FancyBboxPatch
 
 from yaml import safe_load
 
+version_string = 0.19
+
 def load_a2_parkf(config):
     parkf = geopandas.read_file(config['a2_parks']) # TODO
     # two extra 'parks' we don't want
@@ -160,12 +162,17 @@ def load_osm(config, bounds, crs, parkfs, trailfs):
 
     return osm_streetf, osm_waterf
 
-def calculate_street_linewidths(streetf, lane_denom):
+valid_nfcs_highway_types = ['Interstate', 'Other Freeway']
+def identify_known_highways(streetf):
+    return np.array([x in valid_nfcs_highway_types for x in streetf['NFCS'].values])
+
+def calculate_street_linewidths(streetf, lane_denom, highway_mask):
     # calculate lane widths
     # apply number of lanes where available, otherwise assume 1
     lanewidth = np.where(streetf['Lanes'].isna(), 1/lane_denom, streetf['Lanes'].astype(float)/lane_denom)
     # apply 6 lanes to known highways
-    lanewidth = np.where(~(streetf['NHFS'].isna() | (streetf['NHFS'] == '<Null>')), 6/lane_denom, lanewidth)
+    lanewidth = np.where(~(streetf['NHFS'].isna() | (streetf['NHFS'] == '<Null>')) & streetf['Lanes'].isna(), 6/lane_denom, lanewidth)
+    lanewidth = np.where(highway_mask, 10/lane_denom, lanewidth)
     return lanewidth
 
 def add_park_labels(parkf):
@@ -406,7 +413,7 @@ def add_park_labels(parkf):
         for dk, dv in dval.items():
             parkf.loc[parkf['NAME'] == kname, dk] = dv
 
-def add_park_colors(config, theme, parkf, xlim, ylim):
+def add_park_colors(config, parkf, xlim, ylim):
     if config['park_color_cycler'].lower() == 'hilbert':
         # colors via Hilbert curve
         import hilbert
@@ -432,7 +439,7 @@ def add_park_colors(config, theme, parkf, xlim, ylim):
         # calculate the hilbert distance (here "Hilbert argument") for each park based
         # on its label position
         hilb_args = rgi_dist((parkf['cross_x'], parkf['cross_y']))
-        parkf['hilbert_args'] = (hilb_args - np.min(hilb_args)) / (np.max(hilb_args)-np.min(hilb_args))
+        parkf['hilbert_args'] = np.argsort(hilb_args)
         # everything gets a number from 0 to 1 encoding position along the Hilbert curve
 
         # turn into colors via cmap
@@ -440,21 +447,7 @@ def add_park_colors(config, theme, parkf, xlim, ylim):
         # use an irrational number (e.g., np.e) to ensure that cycling is not periodic
         colorargs = parkf['hilbert_args'].values * (len(xpts)/np.e) % 1
 
-        # colors for parks
-        #map_green_colors = [
-        #    "#b1d16c", "#72d263", "#42ad3f", "#3fa053", "#459660", "#306943",
-        #]
-        map_green_colors = theme['park_cycler']
-
-        cmap = LinearSegmentedColormap.from_list('map_greens', map_green_colors)
-        #cmap = plt.get_cmap('hsv') # for debugging
-
-        # calculate park colors using the cmap and the hilbert args
-        newcolors = cmap(colorargs)
-        # edgecolors are just darkened colors
-        newedgecolors = newcolors[:,:3]*0.8
-        parkf['newcolors'] = [to_hex(x) for x in newcolors]
-        parkf['newedgecolors'] = [to_hex(x) for x in newedgecolors]
+        parkf['newcolors_arg'] = colorargs
     else:
         raise NotImplementedError("Only Hilbert currently implemented")
 
@@ -462,9 +455,7 @@ def make_map_main():
     print('Reading config...')
     with open('config.yml', 'r') as stream:
         config = safe_load(stream)
-    theme_filename = f"themes/{config['color_theme']}.yml"
-    with open(theme_filename, 'r') as stream:
-        theme = safe_load(stream)
+    theme_name = config['color_theme']
 
     xlim = config['xlim'] # TODO
     xlim = [float(k) for k in xlim]
@@ -508,136 +499,152 @@ def make_map_main():
     # lane widths
     print('Adding lane widths, labels, and colors...')
     lane_denom = config['lane_denom'] # TODO
-    lanewidth = calculate_street_linewidths(streetf, lane_denom)
+    known_highway_mask = identify_known_highways(streetf)
+    lanewidth = calculate_street_linewidths(streetf, lane_denom, known_highway_mask)
 
     add_park_labels(parkf)
-    add_park_colors(config, theme, parkf, xlim, ylim)
+    add_park_colors(config, parkf, xlim, ylim)
 
     # main plotting goes here
+    while theme_name:
+        print('Starting plotting...')
+        theme_filename = f"themes/{theme_name}.yml"
+        with open(theme_filename, 'r') as stream:
+            theme = safe_load(stream)
+        fig,ax = plt.subplots(figsize=config['dims_inches'], layout='none', gridspec_kw={"left":0, "right":1, "bottom":0, "top":1})
 
-    print('Starting plotting...')
-    fig,ax = plt.subplots(figsize=config['dims_inches'], layout='none', gridspec_kw={"left":0, "right":1, "bottom":0, "top":1})
+        fig.set_facecolor(theme['background'])
 
-    ax.set_facecolor(theme['background'])
+        # plot basic shapes
+        outdoor_recf.plot(ax=ax, color=theme['other_green'])
+        washtenaw_recf.plot(ax=ax, color=theme['other_green'])
+        noncityf.plot(ax=ax, color=theme['other_green'])
+        washtenaw_conservf.plot(ax=ax, color=theme['other_green'])
+        univf.plot(ax=ax, color=theme['university'])
+        schoolf.plot(ax=ax, color=theme['pub_schools'])
 
-    # plot basic shapes
-    outdoor_recf.plot(ax=ax, color=theme['other_green'])
-    washtenaw_recf.plot(ax=ax, color=theme['other_green'])
-    noncityf.plot(ax=ax, color=theme['other_green'])
-    washtenaw_conservf.plot(ax=ax, color=theme['other_green'])
-    univf.plot(ax=ax, color=theme['university'])
-    schoolf.plot(ax=ax, color=theme['pub_schools'])
-    water_color = theme['water']
-    #water1.plot(ax=ax, color=water_color)
-    #water2.plot(ax=ax, color=water_color)
-    usgs_waterf.plot(ax=ax, color=water_color)
-    riverf.plot(ax=ax, color=water_color)
+        # water
+        water_color = theme['water']
+        usgs_waterf.plot(ax=ax, color=water_color)
+        riverf.plot(ax=ax, color=water_color)
 
-    # parks on top of main water
-    parkf.plot(ax=ax, color=parkf['newcolors'], edgecolor=parkf['newedgecolors'], lw=1.5)
+        # parks on top of main water
+        # prepare colors
+        park_cycler = theme['park_cycler']
+        if isinstance(park_cycler, str):
+            cmap = plt.get_cmap(park_cycler)
+        else:
+            map_green_colors = theme['park_cycler']
+            cmap = LinearSegmentedColormap.from_list('map_greens', map_green_colors)
 
-    # small bodies of water on top of parks
-    osm_waterf.plot(ax=ax, color=water_color)
+        # calculate park colors using the cmap and the hilbert args
+        newcolors = cmap(parkf['newcolors_arg'])
+        newedgecolors = newcolors[:,:3]*0.8
+        parkf['newcolors'] = [to_hex(x) for x in newcolors]
+        parkf['newedgecolors'] = [to_hex(x) for x in newedgecolors]
 
-    # railroads
-    railf.plot(ax=ax, color=theme['railroad'], lw=10/lane_denom)
+        parkf.plot(ax=ax, color=parkf['newcolors'], edgecolor=parkf['newedgecolors'], lw=1.5)
 
-    street_color = theme['streets']
+        # small bodies of water on top of parks
+        osm_waterf.plot(ax=ax, color=water_color)
 
-    # street linewidth by num lanes
-    streetf.plot(ax=ax, color=street_color, lw=lanewidth)
-    # gsis roads lanewidth 1
-    usgs_streetf1.plot(ax=ax, color=street_color, lw=1.0/lane_denom)
-    usgs_streetf2.plot(ax=ax, color=street_color, lw=1.0/lane_denom)
-    # trails thin
-    trail_base = theme['trail_base']
-    trail_dots = theme['trail_dots']
+        # railroads
+        railf.plot(ax=ax, color=theme['railroad'], lw=10/lane_denom)
 
-    washtenaw_county_trailsf.plot(ax=ax, color=trail_base, lw=2.5/lane_denom, ls='-')
-    washtenaw_county_trailsf.plot(ax=ax, color=trail_dots, lw=2.5/lane_denom, ls=':')
-    osm_streetf.plot(ax=ax, color=trail_base, lw=2.5/lane_denom, ls='-')
-    osm_streetf.plot(ax=ax, color=trail_dots, lw=2.5/lane_denom, ls=':')
+        # streets & highways
+        street_color = theme['streets']
+        highway_color = theme['highway']
+        street_highway_colors = np.where(known_highway_mask, highway_color, street_color)
+
+        # street linewidth by num lanes
+        streetf.plot(ax=ax, color=street_highway_colors, lw=lanewidth)
+
+        # gsis roads lanewidth 1
+        usgs_streetf1.plot(ax=ax, color=street_color, lw=1.0/lane_denom)
+        usgs_streetf2.plot(ax=ax, color=street_color, lw=1.0/lane_denom)
+
+        # trails thin
+        trail_base = theme['trail_base']
+        trail_dots = theme['trail_dots']
+        washtenaw_county_trailsf.plot(ax=ax, color=trail_base, lw=2.5/lane_denom, ls='-')
+        washtenaw_county_trailsf.plot(ax=ax, color=trail_dots, lw=2.5/lane_denom, ls=':')
+        osm_streetf.plot(ax=ax, color=trail_base, lw=2.5/lane_denom, ls='-')
+        osm_streetf.plot(ax=ax, color=trail_dots, lw=2.5/lane_denom, ls=':')
 
 
-    b2bf.plot(ax=ax, color=theme['b2b_base'], ls='-', lw=2)
-    b2bf.plot(ax=ax, color=theme['b2b_stripes'], ls='--', lw=2)
+        b2bf.plot(ax=ax, color=theme['b2b_base'], ls='-', lw=2)
+        b2bf.plot(ax=ax, color=theme['b2b_stripes'], ls='--', lw=2)
 
-    park_sq_color = theme['park_label']
-    park_text_color = theme['park_text']
+        park_sq_color = theme['park_label']
+        park_text_color = theme['park_text']
+        bbox_bg_color = theme['bbox_bgs']
 
-    #for cx, cy, ny, cn in zip(xpts, ypts, ypts_name, names):
-    for idx, row in parkf.iterrows():
-        ptcol = park_text_color if park_text_color != "" else row['newedgecolors']
-        #ax.scatter(row['cross_x'], row['cross_y'], marker='x', color='#ee7722', s=0.5, lw=15)
-        ax.scatter(row['cross_x'], row['cross_y'], marker='s', facecolors='#ffffff00', edgecolors='#eeeeee', s=24, lw=1, zorder=100+3*idx)
-        ax.scatter(row['cross_x'], row['cross_y'], marker='s', facecolors='#ffffff00', edgecolors=park_sq_color, s=20, lw=1, zorder=101+3*idx)
-        #ax.text(cx+2e2, ny, cn, color='#229922', fontsize=10, bbox=dict(edgecolor='#229922', facecolor='#ffffffb0', pad=0.3, boxstyle='Round'), ha='left', va='center')
-        ax.annotate(row['NAME'], (row['cross_x'], row['cross_y']), (row['cross_x'] + row['label_x'], row['cross_y'] + row['label_y']), color=ptcol, fontsize=9, ha=row['ha'], va=row['va'],
-                    bbox=dict(edgecolor=ptcol, facecolor='#ffffffb0', pad=0.3, boxstyle='Round'),
-                    arrowprops=dict(color=park_sq_color, arrowstyle='-', relpos=(row['relpos_x'],row['relpos_y']), zorder=102+3*idx)
-                    )
+        for idx, row in parkf.iterrows():
+            ptcol = park_text_color if park_text_color != "" else row['newedgecolors']
+            ax.scatter(row['cross_x'], row['cross_y'], marker='s', facecolors='#ffffff00', edgecolors='#eeeeee', s=24, lw=1, zorder=100+3*idx)
+            ax.scatter(row['cross_x'], row['cross_y'], marker='s', facecolors='#ffffff00', edgecolors=park_sq_color, s=20, lw=1, zorder=101+3*idx)
+            ax.annotate(row['NAME'], (row['cross_x'], row['cross_y']), (row['cross_x'] + row['label_x'], row['cross_y'] + row['label_y']), color=ptcol, fontsize=9, ha=row['ha'], va=row['va'],
+                        bbox=dict(edgecolor=ptcol, facecolor=bbox_bg_color, pad=0.3, boxstyle='Round'),
+                        arrowprops=dict(color=park_sq_color, arrowstyle='-', relpos=(row['relpos_x'],row['relpos_y']), zorder=102+3*idx)
+                        )
 
-    ax.axis('off')
+        ax.axis('off')
 
-    #mx = (1.3273e7 + 1.3318e7) / 2
-    #my = (2.64e5 + 3.03e5) / 2
+        ax.set_xlim(*xlim)
+        ax.set_ylim(*ylim)
 
-    #xhalfrange = -(1.3273e7 - 1.3318e7)/2
+        checklist_color = theme['checklist']
+        park_name_list = list(parkf['NAME'].sort_values().values)
+        park_name_list = [f"□ {pn}" for pn in park_name_list]
+        pthird = len(park_name_list)//3
+        park_names_1 = '\n'.join(park_name_list[:pthird])
+        park_names_2 = '\n'.join(park_name_list[pthird:2*pthird])
+        park_names_3 = '\n'.join(park_name_list[2*pthird:])
+        fancybox = FancyBboxPatch(xy=(0.817,0.01),width=0.173,height=0.2,facecolor=bbox_bg_color, edgecolor=checklist_color, boxstyle='Round, pad=0.003', transform=ax.transAxes, zorder=10)
+        ax.add_patch(fancybox)
+        ax.text(0.817,0.21,park_names_1,fontsize=8,color=checklist_color,transform=ax.transAxes,ha='left',va='top', zorder=11)
+        ax.text(0.875,0.21,park_names_2,fontsize=8,color=checklist_color,transform=ax.transAxes,ha='left',va='top', zorder=12)
+        ax.text(0.937,0.21,park_names_3,fontsize=8,color=checklist_color,transform=ax.transAxes,ha='left',va='top', zorder=13)
 
-    ax.set_xlim(*xlim)
-    ax.set_ylim(*ylim)
+        #plot_hilbert(ax, running_hilbert, running_connectors, mx-xhalfrange, mx+xhalfrange, my-xhalfrange, my+xhalfrange)
 
-    park_name_list = list(parkf['NAME'].sort_values().values)
-    park_name_list = [f"□ {pn}" for pn in park_name_list]
-    pthird = len(park_name_list)//3
-    park_names_1 = '\n'.join(park_name_list[:pthird])
-    park_names_2 = '\n'.join(park_name_list[pthird:2*pthird])
-    park_names_3 = '\n'.join(park_name_list[2*pthird:])
-    fancybox = FancyBboxPatch(xy=(0.817,0.01),width=0.173,height=0.2,facecolor='#ffffffcc', edgecolor='#555555', boxstyle='Round, pad=0.003', transform=ax.transAxes, zorder=10)
-    ax.add_patch(fancybox)
-    checklist_color = theme['checklist']
-    ax.text(0.817,0.21,park_names_1,fontsize=8,color=checklist_color,transform=ax.transAxes,ha='left',va='top', zorder=11)
-    ax.text(0.875,0.21,park_names_2,fontsize=8,color=checklist_color,transform=ax.transAxes,ha='left',va='top', zorder=12)
-    ax.text(0.937,0.21,park_names_3,fontsize=8,color=checklist_color,transform=ax.transAxes,ha='left',va='top', zorder=13)
+        mile_left = xlim[0]+1e3
+        mile_bottom = ylim[0]+1e3
+        mile_color = theme['scale_mile']
+        km_color = theme['scale_km']
+        ax.plot([mile_left, mile_left + 5280], [mile_bottom, mile_bottom], lw=3, color=mile_color)
+        ax.plot([mile_left, mile_left + 3280.84], [mile_bottom-4e1, mile_bottom-4e1], lw=3, color=km_color)
+        ax.vlines([mile_left, mile_left + 5280], [mile_bottom, mile_bottom], [mile_bottom+1.2e2, mile_bottom+1.2e2], color=mile_color, lw=3)
+        ax.vlines([mile_left, mile_left + 3280.84], [mile_bottom-4e1-1.2e2, mile_bottom-4e1-1.2e2], [mile_bottom-4e1, mile_bottom-4e1], color=km_color, lw=3)
+        ax.text(mile_left+5280/2, mile_bottom+4e1, '1 mi', va='bottom', ha='center', color=mile_color)
+        ax.text(mile_left+3280.84/2, mile_bottom-1e2, '1 km', va='top', ha='center', color=km_color)
 
-    #plot_hilbert(ax, running_hilbert, running_connectors, mx-xhalfrange, mx+xhalfrange, my-xhalfrange, my+xhalfrange)
+        compass_x = xlim[0]+8e2+5280/4
+        compass_y = ylim[0]+1e3+5280/4
+        compass_size = 3e2
+        compass_lw=5
+        compass_color1 = theme['compass_base']
+        compass_color2 = theme['compass_acc']
 
-    mile_left = xlim[0]+1e3
-    mile_bottom = ylim[0]+1e3
-    mile_color = theme['scale_mile']
-    km_color = theme['scale_km']
-    ax.plot([mile_left, mile_left + 5280], [mile_bottom, mile_bottom], lw=3, color=mile_color)
-    ax.plot([mile_left, mile_left + 3280.84], [mile_bottom-4e1, mile_bottom-4e1], lw=3, color=km_color)
-    ax.vlines([mile_left, mile_left + 5280], [mile_bottom, mile_bottom], [mile_bottom+1.2e2, mile_bottom+1.2e2], color=mile_color, lw=3)
-    ax.vlines([mile_left, mile_left + 3280.84], [mile_bottom-4e1-1.2e2, mile_bottom-4e1-1.2e2], [mile_bottom-4e1, mile_bottom-4e1], color=km_color, lw=3)
-    ax.text(mile_left+5280/2, mile_bottom+4e1, '1 mi', va='bottom', ha='center', color=mile_color)
-    ax.text(mile_left+3280.84/2, mile_bottom-1e2, '1 km', va='top', ha='center', color=km_color)
+        ax.plot([compass_x, compass_x], [compass_y, compass_y+compass_size], lw=compass_lw, color=compass_color1)
+        ax.plot([compass_x, compass_x], [compass_y, compass_y-compass_size], lw=compass_lw, color=compass_color1)
+        ax.plot([compass_x, compass_x+compass_size], [compass_y, compass_y], lw=compass_lw, color=compass_color1)
+        ax.plot([compass_x, compass_x-compass_size], [compass_y, compass_y], lw=compass_lw, color=compass_color1)
+        ax.plot([compass_x, compass_x], [compass_y, compass_y+compass_size*0.97], lw=1, color=compass_color2)
+        ax.plot([compass_x, compass_x], [compass_y, compass_y-compass_size*0.97], lw=1, color=compass_color2)
+        ax.plot([compass_x, compass_x+compass_size*0.97], [compass_y, compass_y], lw=1, color=compass_color2)
+        ax.plot([compass_x, compass_x-compass_size*0.97], [compass_y, compass_y], lw=1, color=compass_color2)
 
-    compass_x = xlim[0]+8e2+5280/4
-    compass_y = ylim[0]+1e3+5280/4
-    compass_size = 3e2
-    compass_lw=5
-    compass_color1 = theme['compass_base']
-    compass_color2 = theme['compass_acc']
+        ax.text(compass_x, compass_y+compass_size+1e2, 'N', ha='center', va='bottom', fontsize=10, color=compass_color1)
+        ax.text(compass_x, compass_y-compass_size-1e2, 'S', ha='center', va='top', fontsize=10, color=compass_color1)
+        ax.text(compass_x+compass_size+1e2, compass_y, 'E', ha='left', va='center', fontsize=10, color=compass_color1)
+        ax.text(compass_x-compass_size-1e2, compass_y, 'W', ha='right', va='center', fontsize=10, color=compass_color1)
 
-    ax.plot([compass_x, compass_x], [compass_y, compass_y+compass_size], lw=compass_lw, color=compass_color1)
-    ax.plot([compass_x, compass_x], [compass_y, compass_y-compass_size], lw=compass_lw, color=compass_color1)
-    ax.plot([compass_x, compass_x+compass_size], [compass_y, compass_y], lw=compass_lw, color=compass_color1)
-    ax.plot([compass_x, compass_x-compass_size], [compass_y, compass_y], lw=compass_lw, color=compass_color1)
-    ax.plot([compass_x, compass_x], [compass_y, compass_y+compass_size*0.97], lw=1, color=compass_color2)
-    ax.plot([compass_x, compass_x], [compass_y, compass_y-compass_size*0.97], lw=1, color=compass_color2)
-    ax.plot([compass_x, compass_x+compass_size*0.97], [compass_y, compass_y], lw=1, color=compass_color2)
-    ax.plot([compass_x, compass_x-compass_size*0.97], [compass_y, compass_y], lw=1, color=compass_color2)
+        ax.text(mile_left-5e2,mile_bottom-5e2,"Primary data from A2Gov, Washtenaw County, and USGS. Some trails, cycling paths, and bodies of water from OSM.\nIntellectual property rights belong to respective owners. Not for commerical use. https://github.com/bsike/visit-parks-a2", color=street_color, fontsize=8, ha='left', va='top')
 
-    ax.text(compass_x, compass_y+compass_size+1e2, 'N', ha='center', va='bottom', fontsize=10, color=compass_color1)
-    ax.text(compass_x, compass_y-compass_size-1e2, 'S', ha='center', va='top', fontsize=10, color=compass_color1)
-    ax.text(compass_x+compass_size+1e2, compass_y, 'E', ha='left', va='center', fontsize=10, color=compass_color1)
-    ax.text(compass_x-compass_size-1e2, compass_y, 'W', ha='right', va='center', fontsize=10, color=compass_color1)
-
-    ax.text(mile_left-5e2,mile_bottom-5e2,"Primary data from A2Gov, Washtenaw County, and USGS. Some trails, cycling paths, and bodies of water from OSM.\nIntellectual property rights belong to respective owners. Not for commerical use. Version 0.18 by Brandon Sike.", color=street_color, fontsize=8, ha='left', va='top')
-
-    plt.savefig('aa_v18.pdf')
-    plt.close()
+        plt.savefig(f'aa_{theme_name}_v{version_string}.pdf')
+        plt.close()
+        theme_name = input('Make another with theme: ')
     print('Done!')
 
 

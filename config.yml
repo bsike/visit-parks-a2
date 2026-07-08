@@ -1,4 +1,4 @@
-color_theme: "light-default"
+color_theme: "light"
 mpl_theme: "" # TODO
 dims_inches: [36, 36]
 # TODO output format, rasterized?, output directory
