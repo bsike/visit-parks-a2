@@ -1,0 +1,14 @@
+a2_parks: "https://ckan.a2gov.org/dataset/17dd7a5f-5607-4df3-b892-01abca9b1eba/resource/7c4b7093-7f9c-4f3b-8e2a-15eb31c70f9a/download/aa_parks.zip"
+a2_landuse: "https://ckan.a2gov.org/dataset/ede3b10b-c75a-47d8-be37-11957819aa99/resource/3ec0dd74-02b7-41fd-88b7-7d1760d3ba5e/download/aa_landuse.zip"
+a2_street: "https://ckan.a2gov.org/dataset/b9c4f1d0-c96a-4456-859e-5c80b4ff37d9/resource/bea05f05-8179-46e6-912e-8189a7796bb3/download/aa_roadcenterline.zip"
+a2_noncity: "https://ckan.a2gov.org/dataset/cdac1c7a-8eea-44ef-8a52-0bd71518d8cc/resource/36e1e257-3d07-45b3-8495-1bdc2d51659f/download/aa_non_city_open_spaces.zip"
+a2_univ: "https://ckan.a2gov.org/dataset/bb50cfd7-4cd9-4198-b438-0ce1add8acb8/resource/3e427a33-7a2b-491c-b724-b55cc37618b0/download/aa_university.zip"
+a2_schools: "https://ckan.a2gov.org/dataset/e40d794d-8b84-4e1a-bc69-aa9ef6135533/resource/52fcb1a3-2964-4808-a3d9-07c00d261060/download/aa_schools.zip"
+a2_huron_river: "" # NOT AVAILABLE!
+usgs_water1: "https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHD/State/Shape/NHD_H_Michigan_State_Shape.zip"
+usgs_transportation: "https://prd-tnm.s3.amazonaws.com/StagedProducts/Tran/Shape/TRAN_Michigan_State_Shape.zip"
+washtenaw_rec: "https://ewashtenaw.sharefile.com/share/view/s8e94298d958e43dc91edfc3096b87e5a" # CHECK
+washtenaw_conserv: "https://ewashtenaw.sharefile.com/share/view/s80b216fe50504db8b5de50f7ffab1405" # CHECK
+washtenaw_trails: "https://ewashtenaw.sharefile.com/share/view/sde92b09ac7bb483c86e1c89674c8de38" # CHECK
+washtenaw_b2b: "https://ewashtenaw.sharefile.com/share/view/s6ef35a4928854fd2bbc14bf844d0423a" # CHECK
+osm: "https://overpass-api.de/api/map?bbox=-83.8415,42.2067,-83.6403,42.3591"
