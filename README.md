@@ -1,9 +1,9 @@
 # visit-parks-a2
-Custom map creator for the Ann Arbor, Michigan "Visit Every Park" Challenge using publicly-available geospatial data. See an example (hosted on Google Drive) at [this link](https://drive.google.com/file/d/1gl8HoRzeMtVCXexley9cu5ReP8crPEFz/view?usp=share_link)!
+Custom map creator for the Ann Arbor, Michigan "Visit Every Park" Challenge using publicly-available geospatial data. See an example (hosted on Google Drive) at [this link](https://drive.google.com/file/d/1gl8HoRzeMtVCXexley9cu5ReP8crPEFz/view?usp=share_link).
 
 # Getting Started:
 
-Set directories to shape files (.shp) in `config.yml`. Then simply run `python make_map.py` to produce a map! You can also specify an alternative config file via `python make_map.py a_different_config.yml`.
+Set directories to shape files (.shp) in `config.yml`, then run `python make_map.py` to produce a map. You can also specify an alternative config file via `python make_map.py a_different_config.yml`.
 
 # Dependencies:
 
