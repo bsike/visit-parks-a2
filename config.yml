@@ -6,6 +6,8 @@ dims_inches: [36, 36]
 xlim: [1.3273e7, 1.3318e7]
 ylim: [2.61e5, 3.06e5]
 
+label_directions: "label_directions_default"
+
 lane_denom: 4
 
 usgs_streets: ["Ponds Dr", "Mulberry Ct", "Hikone Dr", "Barton Shore Dr", "Matthai Botanical Gardens"]
@@ -20,7 +22,7 @@ a2_street: "/Users/bsike/OtherData/a2_GIS/aa_roadcenterline/AA_RoadCenterline.sh
 a2_noncity: "/Users/bsike/OtherData/a2_GIS/aa_non_city_open_spaces/AA_Non_City_Open_Spaces.shp"
 a2_univ: "/Users/bsike/OtherData/a2_GIS/aa_university/AA_University.shp"
 a2_schools: "/Users/bsike/OtherData/a2_GIS/aa_schools/AA_Schools.shp"
-a2_huron_river: "/Users/bsike/OtherData/a2_GIS/huronrivergislayer/Huron_River_July_2026.shp"
+a2_water: "/Users/bsike/OtherData/a2_GIS/aa_waterbodies/AA_Waterbodies.shp"
 usgs_water1: "/Users/bsike/OtherData/a2_GIS/NHD_H_Michigan_State_Shape/Shape/NHDArea.shp"
 usgs_water2: "/Users/bsike/OtherData/a2_GIS/NHD_H_Michigan_State_Shape/Shape/NHDWaterbody.shp"
 usgs_road1: "/Users/bsike/OtherData/a2_GIS/TRAN_Michigan_State_Shape/Shape/Trans_RoadSegment_0.shp"

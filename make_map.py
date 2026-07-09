@@ -6,7 +6,13 @@ Author: Brandon Sike bsike@umich.edu
 
  -------------------------------- ----+---- Todos ----+----
 
- * Docstrings
+ * Documentation
+ * Check if files exist
+ * Allow for missing files
+ * Account for using different road centerline files
+ * Add different park coloring schemes
+ * Make config filename a sys arg
+ * Make compass more efficient
 
  ------------------------------- ----+---- License ----+----
  
@@ -65,8 +71,8 @@ def load_a2_schoolf(config):
     schoolf = geopandas.read_file(config['a2_schools']) # TODO
     return schoolf
 
-def load_a2_riverf(config):
-    riverf = geopandas.read_file(config['a2_huron_river']) # TODO
+def load_a2_waterf(config):
+    riverf = geopandas.read_file(config['a2_water']) # TODO
     return riverf
 
 def load_washtenaw_recf(config, bounds):
@@ -175,7 +181,7 @@ def calculate_street_linewidths(streetf, lane_denom, highway_mask):
     lanewidth = np.where(highway_mask, 10/lane_denom, lanewidth)
     return lanewidth
 
-def add_park_labels(parkf):
+def add_park_labels(config, parkf):
     # add crosses and label relative positions for everything
 
     # representative points for parks, to place the empty square
@@ -242,171 +248,19 @@ def add_park_labels(parkf):
         relpos_y=0.5,
     )
 
-    # decide where to label things
-    change_dict = {
-        "2570 Dexter Road Park": updict,
-        "Allmendinger Park": updict,
-        "Ann Arbor Senior Center": downdict,
-        "Arbor Hills Nature Area": downdict,
-        "Arbor Oaks Park": updict,
-        "Arboretum Nature Area": updict,
-        "Argo Nature Area": updict,
-        "Bader Park": updict,
-        "Bandemer Park": updict,
-        "Barton Nature Area": updict,
-        "Baxter Park": updict,
-        "Beckley Park": updict,
-        "Belize Park": updict,
-        "Berkshire Creek Nature Area": downdict,
-        "Bicentennial Park": updict,
-        "Bird Hills Nature Area": updict,
-        "Black Pond Woods Nature Area": updict,
-        "Bluffs Nature Area": updict,
-        "Braun Nature Area": downdict,
-        "Broadway Park": updict,
-        "Brokaw Nature Area": updict,
-        "Bromley Park": updict,
-        "Brookside Park": updict,
-        "Bryant Community Center": downdict,
-        "Buhr Park": updict,
-        "Burns Park": updict,
-        "Burr Oak Park": leftdict,
-        "Buttonbush Nature Area": updict,
-        "Cedar Bend Nature Area": updict,
-        "Churchill Downs Park": rightdict,
-        "Clinton Park": updict,
-        "Cloverdale Park": updict,
-        "Cobblestone Farm": rightdict,
-        "Cranbrook Park": updict,
-        "Crary Park": updict,
-        "Creal Park": updict,
-        "Depot Park": updict,
-        "Devonshire Park": downdict,
-        "Dhu Varren Woods Nature Area": updict,
-        "Dicken Park": rightdict,
-        "Dicken Woods Nature Area": updict,
-        "Dolph Nature Area": updict,
-        "Douglas Park": leftdict,
-        "Dr. Harold J. Lockett Park": updict,
-        "Earhart Park": updict,
-        "Earhart West Park": updict,
-        "Eberbach Cultural Arts Bldg": leftdict,
-        "Eberwhite Nature Area": updict,
-        "Eisenhower Park": rightdict,
-        "Ellsworth Park": updict,
-        "Esch Park": updict,
-        "Evergreen Park": updict,
-        "Fairview Cemetery": rightdict,
-        "Farmers Market": rightdict,
-        "Folkstone Park": rightdict,
-        "Forest Nature Area": updict,
-        "Forsythe Park": updict,
-        "Foxfire East Park": updict,
-        "Foxfire North Park": updict,
-        "Foxfire South Park": updict,
-        "Foxfire West Park": updict,
-        "Frisinger Park": leftdict,
-        "Fritz Park": updict,
-        "Fuller Park": updict,
-        "Furstenberg Nature Area": updict,
-        "Gallup Park": updict,
-        "Garden Homes Park": rightdict,
-        "George Washington Park (The Rock)": updict,
-        "Glacier Highlands Park": updict,
-        "Glazier Hill Nature Area": updict,
-        "Graydon Park": updict,
-        "Greenbrier Park": rightdict,
-        "Hannah Nature Area": updict,
-        "Hanover Square Park": updict,
-        "Hansen Nature Area": updict,
-        "Hickory Nature Area": updict,
-        "Hilltop Nature Area": updict,
-        "Hollywood Park": updict,
-        "Hunt Park": updict,
-        "Huron Highlands Park": updict,
-        "Huron Hills Golf Course": updict,
-        "Huron Parkway Nature Area": updict,
-        "Iroquois Park": updict,
-        "Island Park": updict,
-        "Kelly Park": updict,
-        "Kempf House": downdict,
-        "Kilburn Park": rightdict,
-        "Kuebler Langford Nature Area": leftdict,
-        "Lakewood Nature Area": rightdict,
-        "Lansdowne Park": updict,
-        "Las Vegas Park": updict,
-        "Lawton Park": updict,
-        "Leslie Park": updict,
-        "Leslie Park Golf Course": updict,
-        "Leslie Science and Nature Center": updict,
-        "Leslie Woods Nature Area": updict,
-        "Liberty Plaza": updict,
-        "Longshore Park": updict,
-        "Mack Pool": updict,
-        "Malletts Creek Nature Area": updict,
-        "Manchester Park": updict,
-        "Marshall Nature Area": updict,
-        "Mary Beth Doyle Park": updict,
-        "Maryfield Wildwood Park": updict,
-        "Meadowbrook Park": updict,
-        "Mill Creek Park": leftdict,
-        "Miller Nature Area": updict,
-        "Mixtwood Pomona Park": updict,
-        "Molin Nature Area": updict,
-        "Museum On Main": rightdict,
-        "Mushroom Park": leftdict,
-        "Narrow Gauge Way Nature Area": updict,
-        "Newport Creek Nature Area": updict,
-        "North Main Park": rightdict,
-        "Northside Community Center": downdict,
-        "Northside Park": rightdict,
-        "Oakridge Nature Area": updict,
-        "Oakwoods Nature Area": updict,
-        "Olson Park": updict,
-        "Onder Park": updict,
-        "Pilgrim Park": updict,
-        "Pittsview Park": updict,
-        "Placid Way Park": downdict,
-        "Plymouth Parkway": updict,
-        "Postmans Rest": rightdict,
-        "Redbud Nature Area": updict,
-        "Redwood Park": updict,
-        "Riverside Park": downdict,
-        "Riverwood Nature Area": updict,
-        "Rose Park": leftdict,
-        "Ruthven Nature Area": updict,
-        "Scarlett Mitchell Nature Area": updict,
-        "Scheffler Park": updict,
-        "Sculpture Plaza": rightdict,
-        "South Maple Park": updict,
-        "South Pond Nature Area": rightdict,
-        "South University Park": updict,
-        "Stapp Nature Area": rightdict,
-        "Stone School Park": updict,
-        "Sugarbush Park": updict,
-        "Sunset Brooks Nature Area": updict,
-        "Swift Run Park": updict,
-        "Sylvan Park": updict,
-        "Terhune Pioneer Memorial Park": updict,
-        "The Ponds Park": updict,
-        "Traver Creek Nature Area": leftdict,
-        "Tuebingen Park": updict,
-        "Turnberry Park": updict,
-        "Veterans Memorial Park": updict,
-        "Virginia Park": updict,
-        "Ward Park": updict,
-        "Waterworks Park": updict,
-        "Waymarket Park": updict,
-        "Wellington Park": updict,
-        "West Park": updict,
-        "Wheeler Park": updict,
-        "White Oak Park": updict,
-        "Willow Nature Area": updict,
-        "Windemere Park": updict,
-        "Winewood Thaler Park": updict,
-        "Woodbury Park": updict,
-        "Wurster Park": updict,
+    direction_encoder = {
+        'up': updict,
+        'down': downdict,
+        'left': leftdict,
+        'right': rightdict,
     }
+
+    # decide where to label things
+    label_filename = f"{config['label_directions']}.yml"
+    with open(label_filename, 'r') as stream:
+        change_dict = safe_load(stream)
+
+    change_dict = {k:direction_encoder[i] for k,i in change_dict.items()}
 
     # apply new labels
     for kname, dval in change_dict.items():
@@ -449,6 +303,7 @@ def add_park_colors(config, parkf, xlim, ylim):
 
         parkf['newcolors_arg'] = colorargs
     else:
+        # TODO implement random, something else
         raise NotImplementedError("Only Hilbert currently implemented")
 
 def make_map_main():
@@ -457,9 +312,9 @@ def make_map_main():
         config = safe_load(stream)
     theme_name = config['color_theme']
 
-    xlim = config['xlim'] # TODO
+    xlim = config['xlim']
     xlim = [float(k) for k in xlim]
-    ylim = config['ylim'] # TODO
+    ylim = config['ylim']
     ylim = [float(k) for k in ylim]
 
     # create a rectangle that is our plot bounds
@@ -470,13 +325,14 @@ def make_map_main():
 
     # read files
     print('Reading files...')
+    # TODO check that files exist
     parkf = load_a2_parkf(config)
     outdoor_recf = load_a2_recf(config)
     streetf = load_a2_streetf(config)
     noncityf = load_a2_noncityf(config)
     univf = load_a2_univf(config)
     schoolf = load_a2_schoolf(config)
-    riverf = load_a2_riverf(config)
+    a2waterf = load_a2_waterf(config)
 
     print('Reading Washtenaw files...')
     washtenaw_recf = load_washtenaw_recf(config, basic_bounds)
@@ -498,11 +354,11 @@ def make_map_main():
     
     # lane widths
     print('Adding lane widths, labels, and colors...')
-    lane_denom = config['lane_denom'] # TODO
+    lane_denom = config['lane_denom']
     known_highway_mask = identify_known_highways(streetf)
     lanewidth = calculate_street_linewidths(streetf, lane_denom, known_highway_mask)
 
-    add_park_labels(parkf)
+    add_park_labels(config, parkf)
     add_park_colors(config, parkf, xlim, ylim)
 
     # main plotting goes here
@@ -526,7 +382,7 @@ def make_map_main():
         # water
         water_color = theme['water']
         usgs_waterf.plot(ax=ax, color=water_color)
-        riverf.plot(ax=ax, color=water_color)
+        a2waterf.plot(ax=ax, color=water_color)
 
         # parks on top of main water
         # prepare colors
