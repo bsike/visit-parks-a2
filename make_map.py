@@ -44,7 +44,7 @@ from yaml import safe_load
 
 import sys
 
-version_string = "0.20"
+version_string = "0.21"
 
 def safe_read_geopandas(config, key, layer=None):
     try:
@@ -190,7 +190,8 @@ def load_usgs_streetfs_and_railf(config, bounds, crs, a2_streetf=None):
 def load_osm(config, bounds, crs, parkfs, trailfs, 
              use_as_primary_streets=False,
              use_as_huron_river=False,
-             use_small_water_bodies=False,):
+             use_small_water_bodies=False,
+             a2_waterf=None):
     if use_as_primary_streets:
         raise NotImplementedError('OSM as primary street layer has not yet been implemented.')
     
@@ -223,6 +224,13 @@ def load_osm(config, bounds, crs, parkfs, trailfs,
             if not use_as_huron_river:
                 # small bodies only
                 osm_waterf = osm_waterf[osm_waterf.area < 1e6] 
+                if a2_waterf is not None:
+                    osm_waterf = geopandas.GeoDataFrame(data=osm_waterf, crs=crs)
+                    # cut out portion already filled in by A2 gov water bodies
+                    #a2_water_bounds = geopandas.GeoDataFrame(geometry=a2_waterf.dissolve().convex_hull.buffer(-100, resolution=0), crs=crs)
+                    a2_water_bounds = geopandas.GeoDataFrame(geometry=a2_waterf.dissolve().concave_hull(ratio=0.1, allow_holes=False).buffer(-100,resolution=0), crs=crs)
+                    osm_waterf = osm_waterf.overlay(a2_water_bounds, how='difference', keep_geom_type=True)
+
             elif use_as_huron_river and not use_small_water_bodies:
                 # large bodies only
                 osm_waterf = osm_waterf[osm_waterf.area > 1e6] 
@@ -390,7 +398,6 @@ def make_map_main():
 
     # read files
     print('Reading files...')
-    # TODO check that files exist
     parkf = load_a2_parkf(config)
     outdoor_recf = load_a2_recf(config)
     streetf = load_a2_streetf(config)
@@ -412,11 +419,12 @@ def make_map_main():
         config, basic_bounds, parkf.crs, a2_streetf=streetf)
     
     print('Reading OSM files...')
-    # TODO boolean flags based on what has been defined
     osm_streetf, osm_waterf = load_osm(
         config, basic_bounds, parkf.crs, 
         [parkf, washtenaw_recf, washtenaw_conservf, outdoor_recf], 
-        [washtenaw_county_trailsf])
+        [washtenaw_county_trailsf],
+        a2_waterf=a2waterf,
+        use_small_water_bodies=True)
     
     # lane widths
     print('Adding lane widths, labels, and colors...')
@@ -437,15 +445,17 @@ def make_map_main():
 
         fig.set_facecolor(theme['background'])
 
+        other_green_color = theme['other_green']
+
         # plot basic shapes
         if outdoor_recf is not None:
-            outdoor_recf.plot(ax=ax, color=theme['other_green'])
+            outdoor_recf.plot(ax=ax, color=other_green_color)
         if washtenaw_recf is not None:
-            washtenaw_recf.plot(ax=ax, color=theme['other_green'])
+            washtenaw_recf.plot(ax=ax, color=other_green_color)
         if noncityf is not None:
-            noncityf.plot(ax=ax, color=theme['other_green'])
+            noncityf.plot(ax=ax, color=other_green_color)
         if washtenaw_conservf is not None:
-            washtenaw_conservf.plot(ax=ax, color=theme['other_green'])
+            washtenaw_conservf.plot(ax=ax, color=other_green_color)
         if univf is not None:
             univf.plot(ax=ax, color=theme['university'])
         if schoolf is not None:
@@ -467,7 +477,7 @@ def make_map_main():
             parkf['newcolors'] = [to_hex(x) for x in newcolors]
             parkf['newedgecolors'] = [to_hex(x) for x in newedgecolors]
 
-            parkf.plot(ax=ax, color=parkf['newcolors'])
+            parkf.plot(ax=ax, color=parkf['newcolors']) # only faces right now (below water layer)
 
         # water
         water_color = theme['water']
@@ -476,7 +486,7 @@ def make_map_main():
         if a2waterf is not None:
             a2waterf.plot(ax=ax, color=water_color)
 
-        # small bodies of water on top of parks
+        # osm water
         if osm_waterf is not None:
             osm_waterf.plot(ax=ax, color=water_color)
 
@@ -587,7 +597,7 @@ def make_map_main():
         ax.text(mile_left+5280/2, mile_bottom+4e1, '1 mi', va='bottom', ha='center', color=mile_color)
         ax.text(mile_left+3280.84/2, mile_bottom-1e2, '1 km', va='top', ha='center', color=km_color)
 
-        compass_x = xlim[0]+8e2+5280/4
+        compass_x = xlim[0]+2.5e3+5280/4
         compass_y = ylim[0]+1e3+5280/4
         compass_size = 3e2
         compass_lw=5
@@ -607,6 +617,43 @@ def make_map_main():
         ax.text(compass_x, compass_y-compass_size-1e2, 'S', ha='center', va='top', fontsize=10, color=compass_color1)
         ax.text(compass_x+compass_size+1e2, compass_y, 'E', ha='left', va='center', fontsize=10, color=compass_color1)
         ax.text(compass_x-compass_size-1e2, compass_y, 'W', ha='right', va='center', fontsize=10, color=compass_color1)
+
+        # legend
+        legend_axes = ax.inset_axes(bounds=(mile_left, mile_bottom+7.5e2, 2e3, 1.8e3), transform=ax.transData, zorder=11)
+        fancybox = FancyBboxPatch(xy=(0,0),width=1,height=1,facecolor='#ffffffff', edgecolor='#555555', boxstyle='Round, pad=0.01', transform=legend_axes.transAxes, zorder=10)
+        ax.add_patch(fancybox)
+        legend_axes.set_xlim(0,1)
+        legend_axes.set_ylim(0,1)
+        legend_axes.axis('off')
+
+        legend_axes.plot([0.05,0.15],[0.9,0.9], color=street_color, lw=3/lane_denom)
+        legend_axes.text(0.18,0.9,'Street',transform=legend_axes.transAxes, fontsize=8, color=street_color, ha='left', va='center')
+
+        legend_axes.plot([0.05,0.15],[0.8,0.8], color=trail_base, lw=2.5/lane_denom, ls='-')
+        legend_axes.plot([0.05,0.15],[0.8,0.8], color=trail_dots, lw=2.5/lane_denom, ls=':')
+        legend_axes.text(0.18,0.8,'Trail',transform=legend_axes.transAxes, fontsize=8, color=trail_base, ha='left', va='center')
+
+        legend_axes.plot([0.05,0.1],[0.7,0.7], color=theme['b2b_base'], lw=2, ls='-')
+        legend_axes.plot([0.1,0.15],[0.7,0.7], color=theme['b2b_stripes'], lw=2, ls='-')
+        legend_axes.text(0.18,0.7,'B2B',transform=legend_axes.transAxes, fontsize=8, color=theme['b2b_base'], ha='left', va='center')
+
+        legend_axes.plot([0.05,0.15],[0.6,0.6], color=highway_color, lw=10/lane_denom)
+        legend_axes.text(0.18,0.6,'Highway',transform=legend_axes.transAxes, fontsize=8, color=highway_color, ha='left', va='center')
+
+        legend_axes.plot([0.05,0.15],[0.5,0.5], color=theme['railroad'], lw=10/lane_denom)
+        legend_axes.text(0.18,0.5,'Railway',transform=legend_axes.transAxes, fontsize=8, color=theme['railroad'], ha='left', va='center')
+
+        legend_axes.fill_between([0.07,0.13],[0.37,0.37],[0.43,0.43],color=other_green_color)
+        legend_axes.text(0.18,0.4,'Non-city Green Space',transform=legend_axes.transAxes, fontsize=8, color='#555555', ha='left', va='center')
+
+        legend_axes.fill_between([0.07,0.13],[0.27,0.27],[0.33,0.33],color=theme['university'])
+        legend_axes.text(0.18,0.3,'University-Owned',transform=legend_axes.transAxes, fontsize=8, color='#555555', ha='left', va='center')
+
+        legend_axes.fill_between([0.07,0.13],[0.17,0.17],[0.23,0.23],color=theme['pub_schools'])
+        legend_axes.text(0.18,0.2,'Public School',transform=legend_axes.transAxes, fontsize=8, color='#555555', ha='left', va='center')
+
+        legend_axes.fill_between([0.07,0.13],[0.07,0.07],[0.13,0.13],color=water_color)
+        legend_axes.text(0.18,0.1,'Water',transform=legend_axes.transAxes, fontsize=8, color=water_color, ha='left', va='center')
 
         # TODO update data information based on what is actually provided.
         ax.text(mile_left-5e2,mile_bottom-5e2,"Primary data from A2Gov, Washtenaw County, and USGS. Some trails, cycling paths, and bodies of water from OSM.\nIntellectual property rights belong to respective owners. Not for commerical use. https://github.com/bsike/visit-parks-a2", color=street_color, fontsize=8, ha='left', va='top')

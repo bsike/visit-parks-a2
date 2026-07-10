@@ -34,4 +34,4 @@ washtenaw_rec: "" # RecreationLands.shp
 washtenaw_conserv: "" # ConservationLands.shp
 washtenaw_trails: "" # cntytrls.shp
 washtenaw_b2b: "" # B2BTrail.shp
-osm: "" # aa_cutout.osm
+osm: "" # map
