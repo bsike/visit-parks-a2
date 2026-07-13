@@ -13,6 +13,9 @@ Author: Brandon Sike bsike@umich.edu
  * Add different park coloring schemes
  * Make config filename a sys arg
  * Make compass more efficient
+ * Fix university color for better printing
+ * Add more options to theme for debugging (and create debug theme)
+ * Add output filename to config
 
  ------------------------------- ----+---- License ----+----
  
@@ -44,7 +47,7 @@ from yaml import safe_load
 
 import sys
 
-version_string = "0.21"
+version_string = "0.22"
 
 def safe_read_geopandas(config, key, layer=None):
     try:
@@ -119,7 +122,7 @@ def load_b2bf(config):
     return safe_read_geopandas(config, 'washtenaw_b2b')
 
 # define water bounds
-def load_usgs_waterfs(config, bounds, crs, a2_waterf=None):
+def load_usgs_waterfs(config, bounds, crs, a2_watercut=None):
     # USGS water files
     water1 = safe_read_geopandas(config, 'usgs_water1')
     if water1 is not None:
@@ -148,11 +151,12 @@ def load_usgs_waterfs(config, bounds, crs, a2_waterf=None):
         # both exist
         water_union_df = water1_df.overlay(water2_df, how='union', keep_geom_type=True)
 
-    if a2_waterf is not None: 
+    if a2_watercut is not None: 
+        print('Cutting out A2 from USGS water.')
         # cut out portion already filled in by A2 gov water bodies
         #print(a2_waterf.dissolve().convex_hull.buffer(-100, resolution=0))
         #print(type(a2_waterf.dissolve().convex_hull.buffer(-100, resolution=0)))
-        a2_water_bounds = geopandas.GeoDataFrame(geometry=a2_waterf.dissolve().convex_hull.buffer(-100, resolution=0), crs=crs)
+        a2_water_bounds = geopandas.GeoDataFrame(geometry=a2_watercut, crs=crs)
         water_removed_df = water_union_df.overlay(a2_water_bounds, how='difference', keep_geom_type=True)
 
         return water_removed_df
@@ -169,15 +173,17 @@ def load_usgs_streetfs_and_railf(config, bounds, crs, a2_streetf=None):
         if a2_streetf is None:
             print('Using USGS streets because A2 streets are missing.')
         elif usgs_st_names:
+            print('Filtering USGS 1 with usgs_streets.')
             usgs_streetf1 = usgs_streetf1[np.array([x in usgs_st_names for x in usgs_streetf1['name'].values])]
 
     usgs_streetf2 = safe_read_geopandas(config, 'usgs_road2')
     if usgs_streetf2 is not None:
         usgs_streetf2 = usgs_streetf2.to_crs(crs)
         usgs_streetf2 = usgs_streetf2[usgs_streetf2.intersects(bounds)]
-        if a2_streetf is not None:
+        if a2_streetf is None:
             ... # already printed
         elif usgs_st_names:
+            print('Filtering USGS 2 with usgs_streets.')
             usgs_streetf2 = usgs_streetf2[np.array([x in usgs_st_names for x in usgs_streetf2['name'].values])]
 
     railf = safe_read_geopandas(config, 'usgs_rail')
@@ -191,7 +197,7 @@ def load_osm(config, bounds, crs, parkfs, trailfs,
              use_as_primary_streets=False,
              use_as_huron_river=False,
              use_small_water_bodies=False,
-             a2_waterf=None):
+             a2_watercut=None):
     if use_as_primary_streets:
         raise NotImplementedError('OSM as primary street layer has not yet been implemented.')
     
@@ -224,11 +230,12 @@ def load_osm(config, bounds, crs, parkfs, trailfs,
             if not use_as_huron_river:
                 # small bodies only
                 osm_waterf = osm_waterf[osm_waterf.area < 1e6] 
-                if a2_waterf is not None:
+                if a2_watercut is not None:
+                    print('Cutting out A2 from OSM water.')
                     osm_waterf = geopandas.GeoDataFrame(data=osm_waterf, crs=crs)
                     # cut out portion already filled in by A2 gov water bodies
                     #a2_water_bounds = geopandas.GeoDataFrame(geometry=a2_waterf.dissolve().convex_hull.buffer(-100, resolution=0), crs=crs)
-                    a2_water_bounds = geopandas.GeoDataFrame(geometry=a2_waterf.dissolve().concave_hull(ratio=0.1, allow_holes=False).buffer(-100,resolution=0), crs=crs)
+                    a2_water_bounds = geopandas.GeoDataFrame(geometry=a2_watercut, crs=crs)
                     osm_waterf = osm_waterf.overlay(a2_water_bounds, how='difference', keep_geom_type=True)
 
             elif use_as_huron_river and not use_small_water_bodies:
@@ -405,6 +412,10 @@ def make_map_main():
     univf = load_a2_univf(config)
     schoolf = load_a2_schoolf(config)
     a2waterf = load_a2_waterf(config)
+    a2watercut = None
+    if a2waterf is not None:
+        a2watercut = a2waterf.dissolve().concave_hull(
+            ratio=0.3, allow_holes=False).buffer(-300,resolution=1)
 
     print('Reading Washtenaw files...')
     washtenaw_recf = load_washtenaw_recf(config, basic_bounds)
@@ -414,7 +425,7 @@ def make_map_main():
     b2bf = load_b2bf(config)
 
     print('Reading USGS files...')
-    usgs_waterf = load_usgs_waterfs(config, basic_bounds, parkf.crs, a2_waterf=a2waterf)
+    usgs_waterf = load_usgs_waterfs(config, basic_bounds, parkf.crs, a2_watercut=a2watercut)
     usgs_streetf1, usgs_streetf2, railf = load_usgs_streetfs_and_railf(
         config, basic_bounds, parkf.crs, a2_streetf=streetf)
     
@@ -423,7 +434,7 @@ def make_map_main():
         config, basic_bounds, parkf.crs, 
         [parkf, washtenaw_recf, washtenaw_conservf, outdoor_recf], 
         [washtenaw_county_trailsf],
-        a2_waterf=a2waterf,
+        a2_watercut=a2watercut,
         use_small_water_bodies=True)
     
     # lane widths
